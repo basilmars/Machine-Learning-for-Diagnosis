@@ -1,0 +1,9 @@
+# Download the data
+from urllib.request import urlretrieve
+# Edit the download function
+def load_data(download=True)
+  # url for data: http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data
+  if download:
+    data_path, _ = urlretrieve("http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data", "C://Users//basil//Development//Python//Data//adult.csv")
+    print("successfully downloaded in C://Users//basil//Development//Python//Data//adult.csv")
+load_data()
