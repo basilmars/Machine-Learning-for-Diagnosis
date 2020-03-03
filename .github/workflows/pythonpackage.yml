@@ -1,33 +1,99 @@
-name: Python package
+# 下载数据
 
-on: [push]
+# 导入库
+import os
+from urllib.request import urlretrieve
+# 显示下载进度
+def cbk(a,b,c):
+    '''回调函数
+    @a:已经下载的数据块
+    @b:数据块的大小
+    @c:远程文件的大小
+    '''
+    per=100.0*a*b/c
+    if per>100:
+        per=100
+    print('%.2f%%' % per)
+# 定义urlretrieve参数并运行下载
+# 数据下载地址：http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data
+url='http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data'
+dir=os.path.abspath('./Data')
+work_path=os.path.join(dir,'adult.csv')
+urlretrieve(url,work_path,cbk)
 
-jobs:
-  build:
+# 读取数据
 
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [2.7, 3.5, 3.6, 3.7, 3.8]
+# 读取数据并显示一部分
+import pandas as pd
+col_names = ["age", "workclass", "fnlwgt", "education", "education-num", "marital-status", "occupation", 
+             "relationship", "race", "sex", "capital-gain", "capital-loss", "hours-per-week", "native-country", "result"]
+data = pd.read_csv("./Data/adult.csv", names=col_names)
+print(data[:10])
 
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v1
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-    - name: Lint with flake8
-      run: |
-        pip install flake8
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    - name: Test with pytest
-      run: |
-        pip install pytest
-        pytest
+# 数据特征处理
+
+# 查看数据缺失情况（方法1）
+data.info()
+# 查看数据缺失情况（方法2）
+data.isnull().any()
+# "?"不能识别出来
+# 查看数据矩阵
+data.shape
+# 导入numpy
+import numpy as np
+# 将“？”替换为可识别为“缺失”的“nan”,再次查看
+data_clean = data.replace(regex=[r'\?'], value=np.nan)
+data_clean.isnull().any()
+# 去除无效数据“nan”
+data = data_clean.dropna(how='any')
+data.shape
+# 去除无用数据“fnlwgt”
+data = data.drop(['fnlwgt'], axis=1)
+data.info()
+
+# 训练测试
+
+# 导入训练测试包
+from sklearn.model_selection import train_test_split
+# 重新定义列名
+col_names = ["age", "workclass", "education", "education-num", "marital-status", "occupation", 
+             "relationship", "race", "sex", "capital-gain", "capital-loss", "hours-per-week", "native-country", "result"]
+# 数据分离
+X_train,X_test,Y_train,Y_test = train_test_split(data[col_names[1:13]],data[col_names[13]],test_size=0.25,random_state=33)
+print(X_train.shape)
+print(X_test.shape)
+X_train.head()
+Y_train.head()
+from sklearn.feature_extraction import DictVectorizer
+dict_vect = DictVectorizer(sparse=False)
+X_train = dict_vect.fit_transform(X_train.to_dict(orient='record'))
+dict_vect.feature_names_
+X_test = dict_vect.transform(X_test.to_dict(orient='record'))
+
+# 选择模型
+
+# 随机森林模型
+from sklearn.ensemble import RandomForestClassifier
+rfc = RandomForestClassifier()
+# XGBoost模型
+from xgboost import XGBClassifier
+xgbc = XGBClassifier()
+from sklearn.model_selection import cross_val_score
+cross_val_score(rfc,X_train,Y_train,cv=5).mean()
+cross_val_score(xgbc,X_train,Y_train,cv=5).mean()
+rfc.fit(X_train,Y_train)
+rfc_Y_predict = rfc.predict(X_test)
+rfc.score(X_test,Y_test)
+xgbc.fit(X_train,Y_train)
+xgbc_Y_predict = xgbc.predict(X_test)
+xgbc.score(X_test,Y_test)
+print(rfc_Y_predict[1:20])
+print(xgbc_Y_predict[1:20])
+print(Y_test[1:20])
+
+# 预测准确率
+from sklearn.metrics import classification_report
+print('随机森林的预测准确率：')
+print(classification_report(Y_test,rfc_Y_predict,target_names=['result','result']))
+print('XGBoost的预测准确率：')
+print(classification_report(Y_test,xgbc_Y_predict,target_names=['result','result']))
